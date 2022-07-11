@@ -3,7 +3,6 @@ use std::error::Error;
 use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use parse_link_header;
-use std::fmt;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
@@ -17,32 +16,33 @@ fn main() -> Result<(), Box<dyn Error>> {
         StatusCode::OK => println!("success"),
         StatusCode::NO_CONTENT => {
             let headermap = resp.headers();
-            for (key, value) in headermap.iter() {
-                println!("{:?}: {:?}", key, value);
-            }
             let links = headermap.get_all("link");
             for link in links.iter() {
             //    println!("{:?}", link);
-                               
-                let item_map = parse_link_header::parse_with_rel(link.to_str().expect("String conv failed"));
-                //assert!(item_map.is_ok());
+                let link = link.to_str().expect("String conv failed");
+                /*
+                Note: Server appends an extra ; at the end of each link 
+                but not needed as per https://datatracker.ietf.org/doc/html/rfc8288#section-3.5
+                */
+                let link = link.trim_matches(';');
+                let item_map = parse_link_header::parse_with_rel(link);
                 match item_map {
-                        Ok(res) => println! ("Result {:?} {}",res, link.to_str().unwrap()),
-                        Err(e) => println! ("Error {:?} {}", e, link.to_str().unwrap()),
+                        Ok(res) => {
+                            for (key,value) in res.iter() {
+                                //println!("{:?}---- {:?}\n", key, value);
+                                if key == "ice-server" {
+                                    println!("{}",value.raw_uri);
+                                    let params = &value.params;
+                                    for (k,v) in params {
+                                        println! ("{}:{}",k,v);
+                                    }
+                                    println!("");
+                                }
+                            }           
+                        },
+                        Err(e) => println! ("Error {:?} {}", e, link),
                 }
-                // for item in item_map.iter() {
-                //     println! {".."};
-                //     println!("{:?}", item);
-                // }
             }
-            // let mut iter = links.iter();
-            // loop {
-            //     // if iter.next().is_none() {
-            //     //     break;
-            //     // }
-            //     println!("{:?}",iter.next().unwrap());
-                
-            // }
         },
         s => println!("received: {}", s),
     };
