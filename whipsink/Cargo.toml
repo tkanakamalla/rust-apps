@@ -9,3 +9,5 @@ edition = "2021"
 reqwest = { version = "0.11", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }
 parse_link_header = {version = "0.3", features = ["url"]}
+ctrlc = "3.2.3"
+futures = "0.3.23"
