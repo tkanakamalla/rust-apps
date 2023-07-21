@@ -1,6 +1,6 @@
 
 use std::net::SocketAddr;
-use warp::{http::{HeaderMap, HeaderValue, self}, Filter, Reply};
+use warp::{http::{HeaderMap, HeaderValue, self}, Filter, Reply, hyper::{header::{LINK, CONTENT_TYPE}, Body}, reply::Response};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -16,7 +16,7 @@ struct Item {
     quantity: i32,
 }
 
-async fn endp_handler(
+async fn endp1_handler(
     item: Item,
     ) -> Result<impl warp::Reply, warp::Rejection> {
 
@@ -38,6 +38,39 @@ async fn endp_handler(
     Ok(res)
 }
 
+async fn endp_handler(
+    content_type: String,
+    body: warp::hyper::body::Bytes,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+
+    let reply = warp::reply::reply();
+
+    if content_type != "application/sdp" {
+        let res = warp::reply::with_status(reply, http::StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        return Ok(res.into_response())
+    }
+
+    let mut links = HeaderMap::new();
+    if STUN_SERVER.is_some() {
+        links.append(LINK, HeaderValue::from_static(STUN_SERVER.unwrap()));
+    }
+    if TURN_SERVERS.is_some() {
+        links.append(LINK, HeaderValue::from_static(TURN_SERVERS.unwrap()));
+    }
+
+
+    let mut res =
+         http::Response::builder()
+        .header(CONTENT_TYPE, "application/sdp")
+        .body(Body::from("hello"))
+        .unwrap();
+
+    let headers = res.headers_mut();
+    headers.extend(links);
+
+    Ok(res)
+}
+
 // fn json_body() -> impl Filter<Extract = (Item,), Error = warp::Rejection> + Clone {
 //     // When accepting a body, we want a JSON body
 //     // (and to reject huge payloads)...
@@ -53,7 +86,8 @@ async fn main() {
     let endp_filter = warp::post()
         .and(warp::path(ENDPOINT))
         .and(warp::path::end())
-        .and(warp::body::json())
+        .and(warp::header("content-type"))
+        .and(warp::body::bytes())
         .and_then(endp_handler);
 
     warp::serve(endp_filter)
